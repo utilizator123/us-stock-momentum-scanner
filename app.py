@@ -46,7 +46,7 @@ def scan_stock(symbol):
         market_cap_mld = market_cap / 1e9 if market_cap else 0
         avg_volume_m = avg_volume / 1e6 if avg_volume else 0
         
-        # Filtrace Fundamentală
+        # Filtrare Fundamentală
         if market_cap_mld < min_market_cap_mld or avg_volume_m < min_avg_vol_m:
             return None
             
@@ -57,6 +57,11 @@ def scan_stock(symbol):
         hist = ticker.history(period="60d")
         if len(hist) < 50:
             return None
+
+        # Calcul Variație Procentuală Zilnică (vs prețul de închidere din ziua anterioară)
+        latest_close = hist['Close'].iloc[-1]
+        prev_close = hist['Close'].iloc[-2]
+        pct_change = ((latest_close - prev_close) / prev_close) * 100
 
         # Indicatori Tehnici
         hist['EMA20'] = ta.trend.ema_indicator(hist['Close'], window=20)
@@ -77,9 +82,13 @@ def scan_stock(symbol):
             news_items = ticker.news[:2] if hasattr(ticker, 'news') and ticker.news else []
             headlines = " | ".join([n.get('title', '') for n in news_items]) if news_items else "Fără știri recente"
             
+            # Formatare Variație cu semn (+ / -)
+            pct_formatted = f"+{round(pct_change, 2)}%" if pct_change > 0 else f"{round(pct_change, 2)}%"
+
             return {
                 "Ticker": symbol,
                 "Preț Curent ($)": round(latest['Close'], 2),
+                "Variație Ziua (%)": pct_formatted,
                 "EMA 20 ($)": round(latest['EMA20'], 2),
                 "EMA 50 ($)": round(latest['EMA50'], 2),
                 "RSI (14)": round(latest['RSI'], 1),

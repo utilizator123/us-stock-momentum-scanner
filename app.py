@@ -75,24 +75,22 @@ def scan_stock(symbol):
         is_rsi_valid = rsi_min <= latest['RSI'] <= rsi_max
         
         vol_20_avg = hist['Volume'].tail(20).mean()
+        vol_ratio_pct = round((latest['Volume'] / vol_20_avg) * 100, 1)
         is_vol_spike = latest['Volume'] > (vol_20_avg * vol_multiplier)
 
         # Condiție cumulativă
         if is_ema_bullish and is_rsi_valid and is_vol_spike:
             news_items = ticker.news[:2] if hasattr(ticker, 'news') and ticker.news else []
             headlines = " | ".join([n.get('title', '') for n in news_items]) if news_items else "Fără știri recente"
-            
-            # Formatare Variație cu semn (+ / -)
-            pct_formatted = f"+{round(pct_change, 2)}%" if pct_change > 0 else f"{round(pct_change, 2)}%"
 
             return {
                 "Ticker": symbol,
                 "Preț Curent ($)": round(latest['Close'], 2),
-                "Variație Ziua (%)": pct_formatted,
+                "Variație Ziua (%)": round(pct_change, 2),
                 "EMA 20 ($)": round(latest['EMA20'], 2),
                 "EMA 50 ($)": round(latest['EMA50'], 2),
                 "RSI (14)": round(latest['RSI'], 1),
-                "Volum vs Medie": f"{round((latest['Volume'] / vol_20_avg) * 100, 1)}%",
+                "Volum vs Medie (%)": vol_ratio_pct,
                 "Market Cap ($B)": round(market_cap_mld, 2),
                 "P/E Forward": round(forward_pe, 1) if forward_pe else "N/A",
                 "Știri / Catalizatori Recenți": headlines
@@ -100,6 +98,13 @@ def scan_stock(symbol):
     except Exception:
         return None
     return None
+
+# Funcție pentru stilizare culori text Variație
+def style_variation(val):
+    if isinstance(val, (int, float)):
+        color = '#00c853' if val > 0 else '#ff1744' if val < 0 else '#888888'
+        return f'color: {color}; font-weight: bold;'
+    return ''
 
 if st.button("🚀 Pornește Scanarea Completă", type="primary"):
     with st.spinner("Se analizează indicatorii tehnici, fundamentali și știrile..."):
@@ -115,6 +120,11 @@ if st.button("🚀 Pornește Scanarea Completă", type="primary"):
         if results:
             df = pd.DataFrame(results)
             st.success(f"Au fost găsite {len(results)} acțiuni care îndeplinesc TOATE condițiile de momentum!")
-            st.dataframe(df, use_container_width=True)
+            
+            # Aplicare stilizare culori
+            styled_df = df.style.map(style_variation, subset=['Variație Ziua (%)'])\
+                                .format({'Variație Ziua (%)': '{:+.2f}%', 'Volum vs Medie (%)': '{:.1f}%'})
+            
+            st.dataframe(styled_df, use_container_width=True)
         else:
             st.warning("Nicio acțiune nu îndeplinește simultan toate criteriile stricte în acest moment. Încearcă să reduci puțin RSI-ul minim (ex: la 50) sau Multiplicatorul de Volum.")
